@@ -40,11 +40,11 @@ class TestObservacion4:
         assert spec["pk"][0] == "userId"
         assert spec["sk"][0] == "topicCardId"
 
-    def test_existe_el_indice_de_vencimiento(self):
-        index = TABLES["user-card-reviews"]["indexes"][0]
-        assert index["name"] == "due-index"
-        assert index["pk"][0] == "userTopicKey"
-        assert index["sk"][0] == "nextReviewDate"
+    def test_la_sk_compuesta_basta_sin_indices(self):
+        # Es la tabla que más se escribe —una vez por repaso—, así que cada
+        # índice duplicaría esa escritura. El begins_with sobre la SK ya
+        # devuelve las reviews de un tema.
+        assert TABLES["user-card-reviews"]["indexes"] == []
 
 
 class TestObservacion1:
@@ -113,6 +113,28 @@ class TestObservacion3:
             personal = path.startswith("/me/") or path in ("/auth/me", "/progress")
             recurso = path.startswith(("/topics/", "/flashcards/", "/quiz/", "/progress/"))
             assert personal or recurso, f"{method} {path}"
+
+
+class TestIndicesSecundarios:
+    """Solo se declara un índice si alguna consulta lo usa.
+
+    Un índice secundario duplica cada escritura de su tabla, así que uno que
+    nadie consulta es puro costo. Estas comprobaciones son el recordatorio.
+    """
+
+    USADOS = {("topics", "catalog-index")}
+
+    def test_solo_existe_el_indice_del_catalogo(self):
+        declarados = {
+            (short, index["name"])
+            for short, spec in TABLES.items()
+            for index in spec["indexes"]
+        }
+        assert declarados == self.USADOS
+
+    def test_las_tablas_de_mas_escritura_no_llevan_indices(self):
+        for short in ("user-card-reviews", "user-progress", "quiz-attempts"):
+            assert TABLES[short]["indexes"] == [], short
 
 
 class TestDatabasePerService:

@@ -46,10 +46,6 @@ def review_key(topic_id: str, card_id: str) -> str:
     return f"{topic_id}#{card_id}"
 
 
-def topic_key(user_id: str, topic_id: str) -> str:
-    return f"{user_id}#{topic_id}"
-
-
 def card_id_for(position: int) -> str:
     """Los ceros a la izquierda hacen que la SK ordene como número."""
     return f"crd_{position:04d}"
@@ -217,7 +213,6 @@ def review_card(event, context):
         "topicCardId": sort_key,
         "topicId": topic_id,
         "cardId": card_id,
-        "userTopicKey": topic_key(user_id, topic_id),
         "nextReviewDate": add_days(result["intervalDays"]),
         "lastReviewedAt": now,
         "easeFactor": decimal(result["easeFactor"]),

@@ -121,19 +121,11 @@ Dueño: **flashcards-service**
 | Configuración | **Personalizar** → Capacidad **Bajo demanda** |
 | Recuperación a un punto anterior | Activada |
 
-> La SK es "topicId#cardId", no solo cardId: con la clave del informe original no se podían consultar las pendientes de UN tema sin leer las de todos (observación #4).
+> La SK es "topicId#cardId", no solo cardId: con la clave del informe original no se podían consultar las pendientes de UN tema sin leer las de todos (observación #4). Con ella basta un begins_with para traer las reviews de un tema.
 
-**Índice secundario global `due-index`**
+Es la tabla que más se escribe de todas —una escritura por repaso—, así que no lleva ningún índice: cada índice duplicaría esa escritura.
 
-| Campo | Valor |
-|---|---|
-| Clave de partición | `userTopicKey` · String |
-| Clave de ordenación | `nextReviewDate` · String |
-| Atributos proyectados | **Todos** |
-
-> La consulta principal de la app: tarjetas de este usuario en este tema que vencen hoy o antes. Devuelve exactamente esas, sin filtrar en memoria (observación #4).
-
-*Atributos que guarda:* topicId, cardId, nextReviewDate, lastReviewedAt, easeFactor, intervalDays, repetitions, lapses, lastRating, state, userTopicKey
+*Atributos que guarda:* topicId, cardId, nextReviewDate, lastReviewedAt, easeFactor, intervalDays, repetitions, lapses, lastRating, state
 
 ---
 
@@ -168,16 +160,6 @@ Dueño: **quiz-service**
 | Recuperación a un punto anterior | Activada |
 
 > quizId es un ULID, ordenable por tiempo, así que Query(userId) devuelve el historial en orden cronológico sin índice adicional.
-
-**Índice secundario global `topic-attempt-index`**
-
-| Campo | Valor |
-|---|---|
-| Clave de partición | `userTopicKey` · String |
-| Clave de ordenación | `startedAt` · String |
-| Atributos proyectados | **Solo los siguientes**: `score`, `status`, `topicId` |
-
-> Último intento por tema, sin recorrer el historial completo.
 
 *Atributos que guarda:* topicId, topicName, status, questions, answers, score, correctCount, total, startedAt, expiresAt, submittedAt, durationSeconds, xpAwarded
 

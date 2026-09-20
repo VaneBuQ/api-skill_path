@@ -59,10 +59,6 @@ def _followed_topic(user_id: str, topic_id: str) -> dict:
     return item
 
 
-def topic_key(user_id: str, topic_id: str) -> str:
-    return f"{user_id}#{topic_id}"
-
-
 # --- generación de preguntas -------------------------------------------------
 
 def build_questions(cards: list[dict], studied_ids: list[str]) -> list[dict]:
@@ -166,7 +162,6 @@ def start_quiz(event, context):
         "quizId": quiz_id,
         "topicId": topic_id,
         "topicName": topic_name,
-        "userTopicKey": topic_key(user_id, topic_id),
         "status": IN_PROGRESS,
         "questions": questions,
         "total": len(questions),

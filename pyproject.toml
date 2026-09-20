@@ -23,6 +23,7 @@ select = ["E", "F", "I", "UP", "B"]
 # Genera tablas Markdown: partir las filas para respetar el ancho haría
 # ilegible tanto el generador como su salida.
 "scripts/generate_deploy_guide.py" = ["E501"]
+"scripts/generate_api_catalog.py" = ["E501"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

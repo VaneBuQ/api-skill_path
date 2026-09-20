@@ -94,27 +94,19 @@ TABLES = {
         "owner": "flashcards-service",
         "pk": ("userId", S),
         "sk": ("topicCardId", S),
-        "indexes": [
-            {
-                "name": "due-index",
-                "pk": ("userTopicKey", S),
-                "sk": ("nextReviewDate", S),
-                "projection": "ALL",
-                "why": (
-                    "La consulta principal de la app: tarjetas de este usuario en "
-                    "este tema que vencen hoy o antes. Devuelve exactamente esas, "
-                    "sin filtrar en memoria (observación #4)."
-                ),
-            }
-        ],
+        # Sin índices secundarios: la SK compuesta ya resuelve la consulta.
+        "indexes": [],
         "attributes": (
             "topicId, cardId, nextReviewDate, lastReviewedAt, easeFactor, "
-            "intervalDays, repetitions, lapses, lastRating, state, userTopicKey"
+            "intervalDays, repetitions, lapses, lastRating, state"
         ),
         "why": (
             'La SK es "topicId#cardId", no solo cardId: con la clave del informe '
             "original no se podían consultar las pendientes de UN tema sin leer "
-            "las de todos (observación #4)."
+            "las de todos (observación #4). Con ella basta un begins_with para "
+            "traer las reviews de un tema.\n\n"
+            "Es la tabla que más se escribe de todas —una escritura por repaso—, "
+            "así que no lleva ningún índice: cada índice duplicaría esa escritura."
         ),
     },
     "user-progress": {
@@ -138,16 +130,8 @@ TABLES = {
         "owner": "quiz-service",
         "pk": ("userId", S),
         "sk": ("quizId", S),
-        "indexes": [
-            {
-                "name": "topic-attempt-index",
-                "pk": ("userTopicKey", S),
-                "sk": ("startedAt", S),
-                "projection": "INCLUDE",
-                "included": ["score", "status", "topicId"],
-                "why": "Último intento por tema, sin recorrer el historial completo.",
-            }
-        ],
+        # Sin índices secundarios: el ULID de la SK ya ordena por tiempo.
+        "indexes": [],
         "attributes": (
             "topicId, topicName, status, questions, answers, score, correctCount, "
             "total, startedAt, expiresAt, submittedAt, durationSeconds, xpAwarded"

@@ -36,6 +36,9 @@ seed: ## Carga el catálogo de temas y las flashcards
 test-live: ## Ejecuta los escenarios contra una API desplegada (necesita API_BASE_URL)
 	$(PY) -m pytest tests/e2e -q
 
+api-catalog: ## Regenera docs/catalogo-apis.md desde infra/spec.py
+	$(PY) scripts/generate_api_catalog.py
+
 postman: ## Genera la colección de Postman desde los escenarios de pytest
 	$(PY) scripts/generate_postman.py
 
