@@ -18,13 +18,14 @@ acceso a las de otro.
 | Microservicio | Responsabilidad | Tablas propias | Historias |
 |---|---|---|---|
 | `auth-service` | Registro e inicio de sesión | `users` | 9, 10 |
-| `topics-service` | Catálogo de temas y "Mis temas" | `topics`, `user-topics` | 1 |
+| `topics-service` | Catálogo, "Mis temas" y mazos propios | `topics`, `user-topics` | 1, 8 |
 | `flashcards-service` | Tarjetas y repetición espaciada | `flashcards`, `user-card-reviews` | 2, 3 |
 | `progress-service` | Progreso por tema, racha y XP | `user-progress` | 4, 5, 11 |
 | `quiz-service` | Generación y calificación de quizzes | `quiz-attempts` | 6 |
 
 Los servicios que necesitan datos de otro **no leen su tabla: invocan al servicio dueño**
-(`flashcards → progress`, `quiz → flashcards`, `quiz → progress`).
+(`flashcards → progress`, `quiz → flashcards`, `quiz → progress`,
+`topics → flashcards`, `topics → progress`).
 
 ## Tecnologías
 
@@ -88,7 +89,7 @@ pruebas y las comprobaciones de arquitectura. Cambiar una clave ahí actualiza l
 
 ## Catálogo de APIs
 
-Todas las rutas van bajo la URL base que devuelve el output `ApiBaseUrl` del stack.
+Todas las rutas van bajo la URL de invocación de la etapa en API Gateway.
 Salvo las marcadas como públicas, exigen `Authorization: Bearer <token>`.
 
 | Servicio | Método | Endpoint | Descripción |
@@ -100,6 +101,13 @@ Salvo las marcadas como públicas, exigen `Authorization: Bearer <token>`.
 | topics | POST | `/topics/{topicId}/follow` | Agrega el tema a "Mis temas" |
 | topics | DELETE | `/topics/{topicId}/follow` | Quita el tema de "Mis temas" |
 | topics | GET | `/me/topics` | Temas que sigue el usuario |
+| topics | POST | `/me/decks` | Crea un mazo propio con sus tarjetas |
+| topics | GET | `/me/decks` | Lista los mazos propios |
+| topics | GET | `/me/decks/{topicId}` | Detalle de un mazo con sus tarjetas |
+| topics | PATCH | `/me/decks/{topicId}` | Renombra un mazo propio |
+| topics | DELETE | `/me/decks/{topicId}` | Elimina el mazo, sus tarjetas y su progreso |
+| topics | POST | `/me/decks/{topicId}/cards` | Agrega tarjetas al mazo |
+| topics | DELETE | `/me/decks/{topicId}/cards/{cardId}` | Elimina una tarjeta |
 | flashcards | GET | `/flashcards/{topicId}` | Tarjetas que tocan hoy en ese tema |
 | flashcards | POST | `/flashcards/{cardId}/review` | Registra la calificación y reprograma |
 | progress | GET | `/progress` | Resumen global (racha, XP) + progreso de todos los temas |

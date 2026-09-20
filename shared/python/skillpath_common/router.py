@@ -71,6 +71,11 @@ class Router:
         return func(event, context)
 
     def _response(self, status, body, request_id):
+        # 204 significa «sin contenido»: enviar un cuerpo, aunque sea "{}",
+        # contradice el código de estado.
+        if status == 204:
+            return {"statusCode": 204, "headers": dict(CORS_HEADERS)}
+
         payload = dict(body or {})
         if status >= 400 and request_id:
             payload["requestId"] = request_id

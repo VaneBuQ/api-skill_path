@@ -81,3 +81,18 @@ class TestLlamadasInternas:
         # Debe llegar como FunctionError para que el servicio que llamó lo note.
         with pytest.raises(NotFound):
             router({"internalAction": "restar", "data": {}})
+
+
+class TestSinContenido:
+    def test_un_204_no_lleva_cuerpo(self):
+        r = Router("pruebas")
+
+        @r.route("DELETE", "/cosas/{id}")
+        def borrar(event, context):
+            return 204, None
+
+        respuesta = r.as_handler()(http("DELETE /cosas/{id}", {"id": "abc"}))
+        assert respuesta["statusCode"] == 204
+        assert "body" not in respuesta
+        # Sin CORS, el navegador bloquearía incluso una respuesta vacía.
+        assert "Access-Control-Allow-Origin" in respuesta["headers"]
