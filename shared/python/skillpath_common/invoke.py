@@ -26,7 +26,13 @@ def _client():
         region_name=os.environ.get("AWS_REGION", "us-east-1"),
         # Timeout corto: si el servicio destino no responde rápido preferimos
         # seguir adelante antes que hacer esperar al usuario.
-        config=Config(connect_timeout=2, read_timeout=5, retries={"max_attempts": 2}),
+        #
+        # Y sin reintentos: una invocación puede haberse ejecutado aunque la
+        # respuesta no llegue, así que reintentar aplicaría el efecto dos veces.
+        # Perder la actualización es preferible a duplicar el XP de un repaso;
+        # los contadores se envían como valores absolutos justamente para que
+        # una pérdida se corrija sola en el siguiente repaso.
+        config=Config(connect_timeout=2, read_timeout=5, retries={"total_max_attempts": 1}),
     )
 
 

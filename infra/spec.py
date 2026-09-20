@@ -123,9 +123,10 @@ TABLES = {
         "sk": ("topicId", S),
         "indexes": [],
         "attributes": (
-            "topicName, cardsTotal, cardsMastered, cardsPending, percent, "
-            "lastStudiedAt · y en el ítem #STATS: streakDays, longestStreakDays, "
-            "lastStudyDate, xpTotal, masteryPercent"
+            "topicName, cardsTotal, cardsMastered, cardsPending, lastStudiedAt "
+            "· y en el ítem #STATS: streakDays, longestStreakDays, lastStudyDate, "
+            "xpTotal. El porcentaje NO se guarda: se calcula al leer, porque un "
+            "valor derivado y almacenado acaba desviándose de lo que resume."
         ),
         "why": (
             'La SK es el topicId salvo un ítem especial "#STATS" por usuario que '

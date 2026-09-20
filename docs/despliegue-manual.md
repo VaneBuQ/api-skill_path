@@ -151,7 +151,7 @@ Dueño: **progress-service**
 
 > La SK es el topicId salvo un ítem especial "#STATS" por usuario que guarda racha y XP (observación #1). Como "#" ordena antes que cualquier letra, una sola Query trae estadísticas y todos los temas.
 
-*Atributos que guarda:* topicName, cardsTotal, cardsMastered, cardsPending, percent, lastStudiedAt · y en el ítem #STATS: streakDays, longestStreakDays, lastStudyDate, xpTotal, masteryPercent
+*Atributos que guarda:* topicName, cardsTotal, cardsMastered, cardsPending, lastStudiedAt · y en el ítem #STATS: streakDays, longestStreakDays, lastStudyDate, xpTotal. El porcentaje NO se guarda: se calcula al leer, porque un valor derivado y almacenado acaba desviándose de lo que resume.
 
 ---
 
