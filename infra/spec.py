@@ -232,7 +232,10 @@ SERVICES = {
     "quiz-service": {
         "code": "services/quiz_service",
         "description": "Generación y calificación de quizzes (historia 6)",
-        "tables": {"quiz-attempts": "crud"},
+        # user-topics es de topics-service: solo lectura, para comprobar que el
+        # usuario sigue el tema y obtener su nombre. Mismo caso que
+        # flashcards-service.
+        "tables": {"quiz-attempts": "crud", "user-topics": "read"},
         "invokes": ["flashcards-service", "progress-service"],
         "routes": [
             ("POST", "/quiz/{topicId}/start", JWT, "Genera un quiz de 10 preguntas"),

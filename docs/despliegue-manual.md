@@ -425,6 +425,7 @@ Generación y calificación de quizzes (historia 6)
 | `CORS_ORIGIN` | `<dominio de CloudFront, o http://localhost:5173 en dev>` |
 | `JWT_SECRET` | `<el mismo secreto en todas las funciones>` |
 | `QUIZ_ATTEMPTS_TABLE` | `skillpath-dev-quiz-attempts` |
+| `USER_TOPICS_TABLE` | `skillpath-dev-user-topics` |
 | `FLASHCARDS_FUNCTION` | `skillpath-dev-flashcards-service` |
 | `PROGRESS_FUNCTION` | `skillpath-dev-progress-service` |
 
@@ -433,6 +434,7 @@ Generación y calificación de quizzes (historia 6)
 | Recurso | Acciones de DynamoDB |
 |---|---|
 | `skillpath-dev-quiz-attempts` | GetItem, Query, Scan, PutItem, UpdateItem, DeleteItem, BatchWriteItem, TransactWriteItems |
+| `skillpath-dev-user-topics` | GetItem, Query, Scan — tabla de *topics-service*, solo lectura |
 
 Además necesita `lambda:InvokeFunction` sobre: `skillpath-dev-flashcards-service`, `skillpath-dev-progress-service`
 

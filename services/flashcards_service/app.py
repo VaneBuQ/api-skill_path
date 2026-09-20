@@ -287,10 +287,14 @@ def get_studied_count(data):
     conceptos **estudiados**, no tarjetas del mazo.
     """
     reviews = list_reviews(data["userId"], data["topicId"])
+    studied = [card_id for card_id, r in reviews.items() if r.get("state") != "new"]
     return {
         "topicId": data["topicId"],
-        "studied": sum(1 for r in reviews.values() if r.get("state") != "new"),
+        "studied": len(studied),
         "mastered": count_mastered(reviews),
+        # quiz-service arma las preguntas SOLO con estas: el prototipo anuncia
+        # «10 preguntas basadas en tus 24 conceptos estudiados».
+        "studiedCardIds": sorted(studied),
     }
 
 
