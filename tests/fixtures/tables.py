@@ -10,20 +10,7 @@ import boto3
 TABLE_DEFS = {
     "users": {
         "KeySchema": [{"AttributeName": "userId", "KeyType": "HASH"}],
-        "AttributeDefinitions": [
-            {"AttributeName": "userId", "AttributeType": "S"},
-            {"AttributeName": "email", "AttributeType": "S"},
-        ],
-        "GlobalSecondaryIndexes": [
-            {
-                "IndexName": "email-index",
-                "KeySchema": [{"AttributeName": "email", "KeyType": "HASH"}],
-                "Projection": {
-                    "ProjectionType": "INCLUDE",
-                    "NonKeyAttributes": ["userId", "name", "passwordHash", "createdAt"],
-                },
-            }
-        ],
+        "AttributeDefinitions": [{"AttributeName": "userId", "AttributeType": "S"}],
     },
     "topics": {
         "KeySchema": [{"AttributeName": "topicId", "KeyType": "HASH"}],

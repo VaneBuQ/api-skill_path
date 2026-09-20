@@ -338,16 +338,12 @@ Resources:
       PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
       AttributeDefinitions:
         - {AttributeName: userId, AttributeType: S}
-        - {AttributeName: email, AttributeType: S}
       KeySchema:
         - {AttributeName: userId, KeyType: HASH}
-      GlobalSecondaryIndexes:
-        - IndexName: email-index
-          KeySchema:
-            - {AttributeName: email, KeyType: HASH}
-          Projection:
-            ProjectionType: INCLUDE
-            NonKeyAttributes: [userId, name, passwordHash, createdAt]
+      # Sin GSI por correo: la búsqueda va por un ítem centinela
+      # "EMAIL#<correo>" en esta misma tabla, que además impone la unicidad.
+      # Un GSI sería de consistencia eventual, así que quien acaba de
+      # registrarse podría no poder iniciar sesión durante unos milisegundos.
 
   # ---- topics-service -----------------------------------------------------
   TopicsTable:

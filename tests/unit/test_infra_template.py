@@ -104,6 +104,17 @@ class TestObservacion1:
         assert _keys(tables["UserProgressTable"]) == {"HASH": "userId", "RANGE": "topicId"}
 
 
+class TestBusquedaPorCorreo:
+    """El correo se resuelve con un centinela, no con un índice secundario."""
+
+    def test_la_tabla_de_usuarios_no_tiene_gsi(self, tables):
+        # Un GSI por correo sería de consistencia eventual: quien acaba de
+        # registrarse podría fallar al iniciar sesión. El centinela
+        # "EMAIL#<correo>" se lee por clave primaria y es consistente, y de
+        # paso impone la unicidad con una condición de escritura.
+        assert "GlobalSecondaryIndexes" not in tables["UsersTable"]
+
+
 class TestObservacion13:
     def test_la_api_es_http_no_rest(self, resources):
         apis = [v for v in resources.values() if "Api" in v["Type"]]
