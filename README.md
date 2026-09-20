@@ -60,8 +60,9 @@ api-skill_path/
 │   ├── seed.py                # carga la semilla (cardCount derivado)
 │   └── generate_postman.py    # colección Postman desde los escenarios de pytest
 ├── tests/
-│   ├── unit/                  # lógica y contratos, sin AWS
-│   └── e2e/                   # contra una API desplegada
+│   ├── e2e/scenarios.py       # los escenarios: fuente única de pytest y Postman
+│   ├── unit/                  # lógica, contratos y escenarios en memoria
+│   └── fixtures/gateway.py    # API Gateway simulado desde infra/spec.py
 └── docs/postman/
 ```
 
@@ -69,8 +70,27 @@ api-skill_path/
 
 ```bash
 make install     # crea .venv e instala dependencias
-make test        # pruebas unitarias — no necesita AWS ni credenciales
+make test        # todas las pruebas — no necesita AWS ni credenciales
 make lint
+```
+
+## Pruebas
+
+Los escenarios de extremo a extremo se declaran **una sola vez**, en
+`tests/e2e/scenarios.py`, y se usan de tres formas que no pueden desincronizarse:
+
+| | Qué hace |
+|---|---|
+| `make test` | Los ejecuta **en memoria** contra los handlers, con DynamoDB simulado y la tabla de rutas real de `infra/spec.py` |
+| `make postman` | Los convierte en la colección de Postman que pide la rúbrica |
+| `make test-live` | Los ejecuta por HTTP contra una API desplegada (necesita `API_BASE_URL`) |
+
+Es decir: la colección de Postman queda verificada **antes** de desplegar nada, y
+si un endpoint cambia sin actualizar el escenario, `make test` falla.
+
+```bash
+make postman
+API_BASE_URL=https://xxx.execute-api.us-east-1.amazonaws.com/dev make test-live
 ```
 
 ## Despliegue
