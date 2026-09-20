@@ -19,5 +19,10 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+# Genera tablas Markdown: partir las filas para respetar el ancho haría
+# ilegible tanto el generador como su salida.
+"scripts/generate_deploy_guide.py" = ["E501"]
+
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

@@ -103,7 +103,7 @@ class TestCargaEnDynamo:
             assert int(topic["cardCount"]) == reales, topic["topicId"]
 
     def test_el_catalogo_sale_ordenado_por_nombre_sin_scan(self, aws, monkeypatch):
-        # El GSI active-name-index existe para no hacer Scan y para devolver
+        # El GSI catalog-index existe para no hacer Scan y para devolver
         # el catálogo ya ordenado, como lo pinta el prototipo.
         monkeypatch.setenv("TOPICS_TABLE", aws["topics"])
         monkeypatch.setenv("FLASHCARDS_TABLE", aws["flashcards"])
@@ -120,8 +120,8 @@ class TestCargaEnDynamo:
         from skillpath_common.db import table
 
         items = table("TOPICS_TABLE").query(
-            IndexName="active-name-index",
-            KeyConditionExpression=Key("isActive").eq("true"),
+            IndexName="catalog-index",
+            KeyConditionExpression=Key("visibility").eq("public"),
         )["Items"]
         nombres = [i["name"] for i in items]
         assert nombres == sorted(nombres)

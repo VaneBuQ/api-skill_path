@@ -86,9 +86,9 @@ def main() -> int:
                 "level": topic["level"],
                 # Derivado, nunca tecleado.
                 "cardCount": card_count,
-                # String, no booleano: DynamoDB no admite booleanos como clave
-                # de un índice, y este atributo es la PK de active-name-index.
-                "isActive": "true",
+                # Los temas del catálogo son públicos. Los mazos que crea el
+                # usuario (historia 8) llevan "private" y no salen aquí.
+                "visibility": "public",
                 "createdAt": now,
             }
         )

@@ -31,15 +31,14 @@ Los servicios que necesitan datos de otro **no leen su tabla: invocan al servici
 - **Python 3.11** · handlers AWS Lambda (sin framework web: API Gateway ya hace el routing)
 - **Amazon API Gateway HTTP API** con authorizer Lambda que valida JWT
 - **Amazon DynamoDB** bajo demanda, una o más tablas por microservicio
-- **AWS SAM** como infraestructura como código
+- Despliegue **manual en la consola de AWS**, guiado por `infra/spec.py`
 - `pytest` + `moto` para pruebas; colección de **Postman** generada desde los mismos escenarios
 
 ## Estructura
 
 ```
 api-skill_path/
-├── template.yaml              # infraestructura: 7 tablas, HTTP API, 6 Lambdas
-├── samconfig.toml             # parámetros de despliegue por entorno
+├── infra/spec.py              # fuente de verdad de la infraestructura
 ├── Makefile
 ├── shared/                    # Lambda layer con el código común
 │   └── python/skillpath_common/
@@ -55,6 +54,8 @@ api-skill_path/
 │   ├── progress_service/  quiz_service/
 ├── seed/                      # catálogo de temas y flashcards
 ├── scripts/
+│   ├── package.py             # arma un .zip por función
+│   ├── generate_deploy_guide.py
 │   ├── seed.py                # carga la semilla (cardCount derivado)
 │   └── generate_postman.py    # colección Postman desde los escenarios de pytest
 ├── tests/
@@ -71,15 +72,19 @@ make test        # pruebas unitarias — no necesita AWS ni credenciales
 make lint
 ```
 
-Para desplegar hacen falta [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
-y [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html):
+## Despliegue
+
+Se hace **a mano en la consola de AWS**, siguiendo
+[`docs/despliegue-manual.md`](docs/despliegue-manual.md): 7 tablas, 6 funciones Lambda
+y una HTTP API con su autorizador.
 
 ```bash
-aws ssm put-parameter --name /skillpath/dev/jwt-secret --type SecureString \
-    --value "$(openssl rand -hex 32)"
-make deploy
-make seed
+make package        # arma dist/<servicio>.zip para subir a la consola
+make deploy-guide   # regenera la guía si cambió infra/spec.py
 ```
+
+`infra/spec.py` es la fuente de verdad: de ahí salen la guía, las tablas que usan las
+pruebas y las comprobaciones de arquitectura. Cambiar una clave ahí actualiza las tres.
 
 ## Catálogo de APIs
 

@@ -8,3 +8,5 @@ htmlcov/
 .aws-sam/
 samconfig.local.toml
 .env
+build/
+dist/
