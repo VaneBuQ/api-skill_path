@@ -1,0 +1,26 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "skillpath-dev"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+fail_on_empty_changeset = false
+parameter_overrides = "Stage=dev JwtSecretParameter=/skillpath/dev/jwt-secret CorsOrigin=http://localhost:5173"
+
+[prod.global.parameters]
+stack_name = "skillpath-prod"
+
+[prod.deploy.parameters]
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = "Stage=prod JwtSecretParameter=/skillpath/prod/jwt-secret"

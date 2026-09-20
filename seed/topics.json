@@ -1,0 +1,44 @@
+[
+  {
+    "topicId": "algebra-lineal",
+    "name": "Álgebra lineal",
+    "description": "Matrices, determinantes, espacios vectoriales y transformaciones lineales.",
+    "icon": "atom",
+    "level": "intermedio"
+  },
+  {
+    "topicId": "estadistica",
+    "name": "Estadística",
+    "description": "Distribuciones, inferencia, pruebas de hipótesis e intervalos de confianza.",
+    "icon": "bar-chart",
+    "level": "intermedio"
+  },
+  {
+    "topicId": "programacion-python",
+    "name": "Programación en Python",
+    "description": "Tipos, estructuras, funciones, complejidad y buenas prácticas.",
+    "icon": "book-open",
+    "level": "basico"
+  },
+  {
+    "topicId": "estructuras-de-datos",
+    "name": "Estructuras de Datos",
+    "description": "Pilas, colas, árboles, grafos, tablas hash y sus complejidades.",
+    "icon": "database",
+    "level": "intermedio"
+  },
+  {
+    "topicId": "calculo",
+    "name": "Cálculo",
+    "description": "Límites, derivadas, integrales y optimización.",
+    "icon": "calculator",
+    "level": "intermedio"
+  },
+  {
+    "topicId": "bases-de-datos",
+    "name": "Bases de Datos",
+    "description": "Modelo relacional, normalización, índices, transacciones y NoSQL.",
+    "icon": "database",
+    "level": "basico"
+  }
+]

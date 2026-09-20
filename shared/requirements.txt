@@ -1,0 +1,2 @@
+# Dependencias del layer compartido. boto3 ya viene en el runtime de Lambda.
+PyJWT==2.10.1
