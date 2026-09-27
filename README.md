@@ -208,7 +208,19 @@ cd services/auth && serverless info
 
 ---
 
-## Pruebas
+## Pruebas y evidencia en Postman
+
+Los escenarios de extremo a extremo se declaran **una sola vez**, en
+`tests/e2e/scenarios.py`, y se usan de tres formas que no pueden desincronizarse:
+
+| | Qué hace |
+|---|---|
+| `make test` | Los ejecuta **en memoria** contra los seis handlers, con DynamoDB simulado y las rutas tomadas de los `serverless.yml` |
+| `make postman` | Los convierte en la colección que pide la rúbrica |
+| `make test-live` | Los ejecuta por HTTP contra las APIs desplegadas |
+
+Es decir: **la colección de Postman queda verificada antes de desplegar nada**, y si un
+endpoint cambia sin actualizar el escenario, `make test` falla.
 
 ```bash
 make install
@@ -218,9 +230,36 @@ make install
 make test
 ```
 
-Las pruebas montan los seis servicios en memoria con DynamoDB simulado y recorren el flujo
-completo: registro, seguir un tema, repasar, comprobar con IA, examen y mazos propios. **No
-necesitan AWS, credenciales ni la clave de Anthropic** — la llamada al modelo se simula.
+**No necesita AWS, credenciales ni la clave de Anthropic** — la llamada al modelo se
+simula. Son 53 pasos repartidos en 5 escenarios: cuenta y catálogo, repaso con IA, examen
+de dominio, mazos propios y seguridad.
+
+### La colección de Postman
+
+```bash
+make postman
+```
+
+Genera `docs/postman/SkillPath.postman_collection.json`. Al importarla en Postman:
+
+1. Rellena las **seis variables** de URL: `authUrl`, `topicsUrl`, `flashcardsUrl`,
+   `progressUrl`, `quizUrl` e `iaUrl`, con lo que imprimió cada `serverless deploy`.
+   Sin barra final.
+2. Ejecútala con **Collection Runner**, no petición por petición: los escenarios van en
+   orden y cada uno continúa la sesión del anterior.
+3. Para volver a ejecutarla, cambia la variable `email`: el primer paso crea una cuenta y
+   el correo no se puede repetir.
+
+El paso «Comprobar una respuesta escrita con IA» llama al modelo de verdad y cuesta una
+fracción de céntimo.
+
+### Contra las APIs desplegadas
+
+```bash
+AUTH_URL=https://... TOPICS_URL=https://... FLASHCARDS_URL=https://... PROGRESS_URL=https://... QUIZ_URL=https://... IA_URL=https://... make test-live
+```
+
+Si esos 53 pasos pasan contra AWS, el backend está bien desplegado.
 
 ---
 

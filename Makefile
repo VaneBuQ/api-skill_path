@@ -21,5 +21,11 @@ sync: ## Copia shared/common.py a cada microservicio (hazlo antes de desplegar)
 seed: ## Carga el catálogo de temas y las tarjetas en DynamoDB
 	$(PY) scripts/seed.py
 
+test-live: ## Ejecuta los escenarios contra AWS (necesita las seis URLs)
+	$(PY) -m pytest tests/e2e -q
+
+postman: ## Regenera la colección de Postman desde los escenarios
+	$(PY) scripts/generate_postman.py
+
 lint: ## Revisa estilo
 	$(VENV)/bin/ruff check shared services scripts tests

@@ -128,6 +128,27 @@ class Cluster:
             if hasattr(module, "call_service"):
                 monkeypatch.setattr(module, "call_service", fake_call)
 
+    def request(self, service, method, path, *, token=None, body=None, query=None):
+        """Como una petición HTTP, pero resolviendo la ruta en memoria.
+
+        La ruta se empareja contra la tabla declarada en los serverless.yml, de
+        modo que la prueba verifica también que la ruta exista tal como se
+        despliega.
+        """
+        from tests.routes import resolve_handler
+
+        handler_name, path_params = resolve_handler(service, method, path)
+        event = {
+            "pathParameters": path_params,
+            "queryStringParameters": query,
+            "headers": {"authorization": f"Bearer {token}"} if token else {},
+        }
+        if body is not None:
+            event["body"] = json.dumps(body)
+        result = getattr(self.services[service], handler_name)(event)
+        payload = json.loads(result["body"]) if result.get("body") else None
+        return result["statusCode"], payload
+
     def call(self, service, handler_name, *, token=None, path=None,
              body=None, query=None):
         event = {
