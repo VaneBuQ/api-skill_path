@@ -1,0 +1,48 @@
+org: deborajeronimo
+app: skillpath
+service: quiz
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  httpApi:
+    cors: true
+  environment:
+    ATTEMPTS_TABLE: ${self:service}-attempts-${sls:stage}
+    USER_TOPICS_TABLE: topics-user-${sls:stage}
+    JWT_SECRET: ${param:jwtSecret, "cambia-esto-en-el-despliegue"}
+    INTERNAL_KEY: ${param:internalKey, "cambia-esto-en-el-despliegue"}
+    FLASHCARDS_API_BASE: ${param:flashcardsApiBase, ""}
+    PROGRESS_API_BASE: ${param:progressApiBase, ""}
+
+functions:
+  startQuiz:
+    handler: handler.start_quiz
+    events:
+      - httpApi: { path: "/quiz/{topicId}/start", method: post }
+  submitQuiz:
+    handler: handler.submit_quiz
+    events:
+      - httpApi: { path: "/quiz/{quizId}/submit", method: post }
+  getQuiz:
+    handler: handler.get_quiz
+    events:
+      - httpApi: { path: "/quiz/{quizId}", method: get }
+
+resources:
+  Resources:
+    AttemptsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.ATTEMPTS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: userId, AttributeType: S }
+          - { AttributeName: quizId, AttributeType: S }
+        KeySchema:
+          - { AttributeName: userId, KeyType: HASH }
+          - { AttributeName: quizId, KeyType: RANGE }

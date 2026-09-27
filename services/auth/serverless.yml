@@ -1,0 +1,52 @@
+org: deborajeronimo
+app: skillpath
+service: auth
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  httpApi:
+    cors: true
+  environment:
+    USERS_TABLE: ${self:service}-table-${sls:stage}
+    # El mismo valor en los seis servicios: si difiere, todos los tokens
+    # emitidos por auth son rechazados por los demás.
+    JWT_SECRET: ${param:jwtSecret, "cambia-esto-en-el-despliegue"}
+
+functions:
+  register:
+    handler: handler.register
+    events:
+      - httpApi:
+          path: /auth/register
+          method: post
+  login:
+    handler: handler.login
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+  me:
+    handler: handler.me
+    events:
+      - httpApi:
+          path: /auth/me
+          method: get
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH

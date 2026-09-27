@@ -1,0 +1,102 @@
+org: deborajeronimo
+app: skillpath
+service: topics
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  httpApi:
+    cors: true
+  environment:
+    TOPICS_TABLE: ${self:service}-catalog-${sls:stage}
+    USER_TOPICS_TABLE: ${self:service}-user-${sls:stage}
+    JWT_SECRET: ${param:jwtSecret, "cambia-esto-en-el-despliegue"}
+    INTERNAL_KEY: ${param:internalKey, "cambia-esto-en-el-despliegue"}
+    # Crear y borrar mazos propios toca tarjetas y progreso, que son de
+    # otros microservicios: se les pide por HTTP.
+    FLASHCARDS_API_BASE: ${param:flashcardsApiBase, ""}
+    PROGRESS_API_BASE: ${param:progressApiBase, ""}
+
+functions:
+  listTopics:
+    handler: handler.list_topics
+    events:
+      - httpApi: { path: "/topics", method: get }
+  followTopic:
+    handler: handler.follow_topic
+    events:
+      - httpApi: { path: "/topics/{topicId}/follow", method: post }
+  unfollowTopic:
+    handler: handler.unfollow_topic
+    events:
+      - httpApi: { path: "/topics/{topicId}/follow", method: delete }
+  myTopics:
+    handler: handler.my_topics
+    events:
+      - httpApi: { path: "/me/topics", method: get }
+  createDeck:
+    handler: handler.create_deck
+    events:
+      - httpApi: { path: "/me/decks", method: post }
+  myDecks:
+    handler: handler.my_decks
+    events:
+      - httpApi: { path: "/me/decks", method: get }
+  deckDetail:
+    handler: handler.deck_detail
+    events:
+      - httpApi: { path: "/me/decks/{topicId}", method: get }
+  renameDeck:
+    handler: handler.rename_deck
+    events:
+      - httpApi: { path: "/me/decks/{topicId}", method: patch }
+  deleteDeck:
+    handler: handler.delete_deck
+    events:
+      - httpApi: { path: "/me/decks/{topicId}", method: delete }
+  addCards:
+    handler: handler.add_cards
+    events:
+      - httpApi: { path: "/me/decks/{topicId}/cards", method: post }
+  removeCard:
+    handler: handler.remove_card
+    events:
+      - httpApi: { path: "/me/decks/{topicId}/cards/{cardId}", method: delete }
+
+resources:
+  Resources:
+    TopicsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TOPICS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: topicId, AttributeType: S }
+          - { AttributeName: visibility, AttributeType: S }
+          - { AttributeName: name, AttributeType: S }
+        KeySchema:
+          - { AttributeName: topicId, KeyType: HASH }
+        GlobalSecondaryIndexes:
+          # Devuelve el catálogo ordenado por nombre sin hacer Scan.
+          # visibility vale "public" para el catálogo y "private" para los
+          # mazos propios, que por lo tanto nunca aparecen aquí.
+          - IndexName: catalog-index
+            KeySchema:
+              - { AttributeName: visibility, KeyType: HASH }
+              - { AttributeName: name, KeyType: RANGE }
+            Projection: { ProjectionType: ALL }
+    UserTopicsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USER_TOPICS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: userId, AttributeType: S }
+          - { AttributeName: topicId, AttributeType: S }
+        KeySchema:
+          - { AttributeName: userId, KeyType: HASH }
+          - { AttributeName: topicId, KeyType: RANGE }

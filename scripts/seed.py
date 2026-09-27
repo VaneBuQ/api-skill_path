@@ -17,17 +17,24 @@ import os
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "shared" / "python"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "shared"))
 
-from skillpath_common.dates import to_iso  # noqa: E402
-from skillpath_common.db import table  # noqa: E402
+import boto3  # noqa: E402
+from common import to_iso  # noqa: E402
 
 SEED_DIR = pathlib.Path(__file__).resolve().parents[1] / "seed"
 STAGE = os.environ.get("STAGE", "dev")
 
 # Si no se pasan explícitamente, se deducen del stage, igual que hace SAM.
-os.environ.setdefault("TOPICS_TABLE", f"skillpath-{STAGE}-topics")
-os.environ.setdefault("FLASHCARDS_TABLE", f"skillpath-{STAGE}-flashcards")
+# Los nombres coinciden con los que crean los serverless.yml.
+os.environ.setdefault("TOPICS_TABLE", f"topics-catalog-{STAGE}")
+os.environ.setdefault("CARDS_TABLE", f"flashcards-cards-{STAGE}")
+
+RESOURCE = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+
+
+def table(env_var):
+    return RESOURCE.Table(os.environ[env_var])
 
 
 def load(name: str):
@@ -42,7 +49,7 @@ def seed_cards(topic_id: str) -> int:
         return 0
 
     cards = json.loads(path.read_text(encoding="utf-8"))
-    cards_table = table("FLASHCARDS_TABLE")
+    cards_table = table("CARDS_TABLE")
     now = to_iso()
 
     with cards_table.batch_writer() as batch:
@@ -57,8 +64,7 @@ def seed_cards(topic_id: str) -> int:
                     "answer": card["answer"],
                     "hint": card.get("hint"),
                     "position": position,
-                    "difficulty": card.get("difficulty", "media"),
-                    "createdAt": now,
+                        "createdAt": now,
                 }
             )
     return len(cards)
@@ -84,10 +90,11 @@ def main() -> int:
                 "description": topic["description"],
                 "icon": topic["icon"],
                 "level": topic["level"],
+                "category": topic.get("category", "General"),
                 # Derivado, nunca tecleado.
                 "cardCount": card_count,
                 # Los temas del catálogo son públicos. Los mazos que crea el
-                # usuario (historia 8) llevan "private" y no salen aquí.
+                # usuario llevan "private" y no salen aquí.
                 "visibility": "public",
                 "createdAt": now,
             }

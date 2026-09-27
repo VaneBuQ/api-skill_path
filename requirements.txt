@@ -1,3 +1,0 @@
-# Dependencias que se empaquetan dentro de las Lambdas.
-# boto3 ya viene en el runtime de AWS, así que no se incluye aquí.
-PyJWT==2.10.1

@@ -1,0 +1,57 @@
+org: deborajeronimo
+app: skillpath
+service: progress
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  httpApi:
+    cors: true
+  environment:
+    PROGRESS_TABLE: ${self:service}-table-${sls:stage}
+    JWT_SECRET: ${param:jwtSecret, "cambia-esto-en-el-despliegue"}
+    INTERNAL_KEY: ${param:internalKey, "cambia-esto-en-el-despliegue"}
+
+functions:
+  allProgress:
+    handler: handler.all_progress
+    events:
+      - httpApi: { path: "/progress", method: get }
+  topicProgress:
+    handler: handler.topic_progress
+    events:
+      - httpApi: { path: "/progress/{topicId}", method: get }
+
+  internalCardReviewed:
+    handler: handler.internal_card_reviewed
+    events:
+      - httpApi: { path: "/internal/progress/card-reviewed", method: post }
+  internalQuizCompleted:
+    handler: handler.internal_quiz_completed
+    events:
+      - httpApi: { path: "/internal/progress/quiz-completed", method: post }
+  internalRemoveTopic:
+    handler: handler.internal_remove_topic
+    events:
+      - httpApi: { path: "/internal/progress/remove-topic", method: post }
+
+resources:
+  Resources:
+    ProgressTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.PROGRESS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: userId, AttributeType: S }
+          # La clave de ordenación es el topicId, salvo un ítem especial
+          # "#STATS" por usuario con la racha y el XP. Como "#" ordena antes
+          # que cualquier letra, una sola consulta trae todo.
+          - { AttributeName: topicId, AttributeType: S }
+        KeySchema:
+          - { AttributeName: userId, KeyType: HASH }
+          - { AttributeName: topicId, KeyType: RANGE }

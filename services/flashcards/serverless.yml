@@ -1,0 +1,89 @@
+org: deborajeronimo
+app: skillpath
+service: flashcards
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  httpApi:
+    cors: true
+  environment:
+    CARDS_TABLE: ${self:service}-cards-${sls:stage}
+    REVIEWS_TABLE: ${self:service}-reviews-${sls:stage}
+    USER_TOPICS_TABLE: topics-user-${sls:stage}
+    JWT_SECRET: ${param:jwtSecret, "cambia-esto-en-el-despliegue"}
+    INTERNAL_KEY: ${param:internalKey, "cambia-esto-en-el-despliegue"}
+    PROGRESS_API_BASE: ${param:progressApiBase, ""}
+
+functions:
+  dueCards:
+    handler: handler.due_cards
+    events:
+      - httpApi: { path: "/flashcards/{topicId}", method: get }
+  reviewCard:
+    handler: handler.review_card
+    events:
+      - httpApi: { path: "/flashcards/{cardId}/review", method: post }
+
+  # Endpoints internos: los llaman otros microservicios, protegidos por
+  # el secreto compartido X-Internal-Key.
+  internalCreateCards:
+    handler: handler.internal_create_cards
+    events:
+      - httpApi: { path: "/internal/cards", method: post }
+  internalListCards:
+    handler: handler.internal_list_cards
+    events:
+      - httpApi: { path: "/internal/cards/list", method: post }
+  internalGetCard:
+    handler: handler.internal_get_card
+    events:
+      - httpApi: { path: "/internal/cards/get", method: post }
+  internalDeleteCard:
+    handler: handler.internal_delete_card
+    events:
+      - httpApi: { path: "/internal/cards/delete", method: post }
+  internalDeleteTopicCards:
+    handler: handler.internal_delete_topic_cards
+    events:
+      - httpApi: { path: "/internal/cards/delete-topic", method: post }
+  internalDeleteTopicReviews:
+    handler: handler.internal_delete_topic_reviews
+    events:
+      - httpApi: { path: "/internal/reviews/delete-topic", method: post }
+  internalStudiedCount:
+    handler: handler.internal_studied_count
+    events:
+      - httpApi: { path: "/internal/reviews/studied", method: post }
+
+resources:
+  Resources:
+    CardsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.CARDS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: topicId, AttributeType: S }
+          - { AttributeName: cardId, AttributeType: S }
+        KeySchema:
+          - { AttributeName: topicId, KeyType: HASH }
+          - { AttributeName: cardId, KeyType: RANGE }
+    ReviewsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.REVIEWS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: userId, AttributeType: S }
+          # La clave de ordenación combina tema y tarjeta: con solo el cardId
+          # no se podrían consultar las pendientes de un tema sin leer las de
+          # todos los demás.
+          - { AttributeName: topicCardId, AttributeType: S }
+        KeySchema:
+          - { AttributeName: userId, KeyType: HASH }
+          - { AttributeName: topicCardId, KeyType: RANGE }

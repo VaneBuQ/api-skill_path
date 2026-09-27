@@ -1,163 +1,314 @@
 # SkillPath — API (Backend / Microservicios)
 
-Backend de **SkillPath**, una app de microlearning activo (flashcards con repetición
-espaciada, quizzes y seguimiento de progreso) para personas que están cursando una
-especialización, bootcamp, maestría o materia universitaria.
+Backend de **SkillPath**, una app de microlearning activo: flashcards con repetición
+espaciada, comprobación de respuestas escritas con IA, examen de autoevaluación y
+seguimiento del progreso.
 
-Curso **Cloud Computing** — Maestría en Ciencia de Datos e Inteligencia Artificial (CDIA V5),
-UTEC Posgrado. Docente: Oscar Mejía.
+Curso **Cloud Computing** — Maestría en Ciencia de Datos e Inteligencia Artificial
+(CDIA V5), UTEC Posgrado. Docente: Oscar Mejía.
 
 Frontend: [web-skill_path](https://github.com/VaneBuQ/web-skill_path)
 
+---
+
 ## Arquitectura
 
-Cinco microservicios independientes sobre **AWS Lambda + Amazon DynamoDB**, patrón
-**database-per-service**: cada servicio tiene sus propias tablas y ningún rol IAM le da
-acceso a las de otro.
+**Seis microservicios independientes**, cada uno con su propio API Gateway, sus funciones
+Lambda y sus tablas de DynamoDB. Se despliegan por separado con **Serverless Framework**.
 
-| Microservicio | Responsabilidad | Tablas propias | Historias |
+| Microservicio | Qué hace | Tablas propias | Rutas |
 |---|---|---|---|
-| `auth-service` | Registro e inicio de sesión | `users` | 9, 10 |
-| `topics-service` | Catálogo, "Mis temas" y mazos propios | `topics`, `user-topics` | 1, 8 |
-| `flashcards-service` | Tarjetas y repetición espaciada | `flashcards`, `user-card-reviews` | 2, 3 |
-| `progress-service` | Progreso por tema, racha y XP | `user-progress` | 4, 5, 11 |
-| `quiz-service` | Generación y calificación de quizzes | `quiz-attempts` | 6 |
+| `auth` | Registro, inicio de sesión y perfil | `users` | 3 |
+| `topics` | Catálogo, «Mis temas» y mazos propios | `topics-catalog`, `topics-user` | 11 |
+| `flashcards` | Tarjetas del día y repetición espaciada | `cards`, `reviews` | 2 + 7 internas |
+| `progress` | Progreso por tema, racha y XP | `progress` | 2 + 3 internas |
+| `quiz` | Examen de autoevaluación | `attempts` | 3 |
+| `ia` | Comprueba la respuesta escrita del usuario | `checks` | 2 |
 
-Los servicios que necesitan datos de otro **no leen su tabla: invocan al servicio dueño**
-(`flashcards → progress`, `quiz → flashcards`, `quiz → progress`,
-`topics → flashcards`, `topics → progress`).
+Los servicios que necesitan datos de otro **no leen su tabla: le piden por HTTP**, igual
+que en el proyecto de ejemplo de la clínica. Los endpoints internos van protegidos con un
+secreto compartido (`X-Internal-Key`), porque cada API Gateway es público.
+
+```
+flashcards ──> progress      actualizar el progreso tras un repaso
+quiz       ──> flashcards    obtener las tarjetas y generar preguntas
+quiz       ──> progress      marcar el tema como dominado
+topics     ──> flashcards    crear y borrar tarjetas de un mazo propio
+topics     ──> progress      limpiar el progreso de un mazo eliminado
+ia         ──> flashcards    obtener la respuesta correcta de la tarjeta
+```
 
 ## Tecnologías
 
-- **Python 3.11** · handlers AWS Lambda (sin framework web: API Gateway ya hace el routing)
-- **Amazon API Gateway HTTP API** con authorizer Lambda que valida JWT
-- **Amazon DynamoDB** bajo demanda, una o más tablas por microservicio
-- Despliegue **manual en la consola de AWS**, guiado por `infra/spec.py`
-- `pytest` + `moto` para pruebas; colección de **Postman** generada desde los mismos escenarios
+- **Python 3.13** sobre AWS Lambda, una función por endpoint
+- **Amazon API Gateway** (HTTP API), uno por microservicio
+- **Amazon DynamoDB**, bajo demanda
+- **Serverless Framework** para automatizar el despliegue
+- **API de Anthropic (Claude Haiku)** para evaluar las respuestas escritas
+
+**Sin dependencias externas.** Los `requirements.txt` están vacíos a propósito: el JWT se
+firma con `hmac`, las contraseñas con `hashlib` y las llamadas HTTP con `urllib`, todo de
+la librería estándar. Así no hace falta empaquetar nada ni usar Docker.
+
+---
 
 ## Estructura
 
 ```
 api-skill_path/
-├── infra/spec.py              # fuente de verdad de la infraestructura
-├── Makefile
-├── shared/                    # Lambda layer con el código común
-│   └── python/skillpath_common/
-│       ├── rules.py           # SM-2, "dominado", racha, XP, reglas del quiz
-│       ├── router.py          # despacho HTTP + llamadas entre servicios
-│       ├── errors.py          # catálogo de errores de la API
-│       ├── tokens.py          # emisión y validación de JWT
-│       ├── passwords.py       # PBKDF2-SHA256
-│       ├── db.py  invoke.py  dates.py  ids.py  http.py
-├── services/
-│   ├── authorizer/            # valida el JWT en el borde
-│   ├── auth_service/  topics_service/  flashcards_service/
-│   ├── progress_service/  quiz_service/
-├── seed/                      # catálogo de temas y flashcards
+├── shared/common.py          código común: fuente única
 ├── scripts/
-│   ├── package.py             # arma un .zip por función
-│   ├── generate_deploy_guide.py
-│   ├── seed.py                # carga la semilla (cardCount derivado)
-│   └── generate_postman.py    # colección Postman desde los escenarios de pytest
-├── tests/
-│   ├── e2e/scenarios.py       # los escenarios: fuente única de pytest y Postman
-│   ├── unit/                  # lógica, contratos y escenarios en memoria
-│   └── fixtures/gateway.py    # API Gateway simulado desde infra/spec.py
-└── docs/postman/
+│   ├── sync-common.sh        lo copia a cada servicio
+│   └── seed.py               carga el catálogo de temas
+├── seed/                     temas y tarjetas iniciales
+├── services/
+│   ├── auth/         handler.py · serverless.yml · requirements.txt · README.md
+│   ├── topics/
+│   ├── flashcards/
+│   ├── progress/
+│   ├── quiz/
+│   └── ia/
+└── tests/                    pruebas con DynamoDB simulado
 ```
 
-## Ejecución local
+`common.py` se copia a cada servicio porque en este patrón no hay Lambda Layers: cada
+servicio se empaqueta solo con lo que hay en su carpeta.
+
+---
+
+## Antes de desplegar
+
+### 1. Herramientas
 
 ```bash
-make install     # crea .venv e instala dependencias
-make test        # todas las pruebas — no necesita AWS ni credenciales
-make lint
+npm install -g serverless
 ```
 
-## Pruebas
+También necesitas las credenciales de AWS configuradas (`aws configure`, o las variables
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_SESSION_TOKEN` si usas Learner Lab).
 
-Los escenarios de extremo a extremo se declaran **una sola vez**, en
-`tests/e2e/scenarios.py`, y se usan de tres formas que no pueden desincronizarse:
+### 2. Cambia la cuenta de Serverless Dashboard
 
-| | Qué hace |
-|---|---|
-| `make test` | Los ejecuta **en memoria** contra los handlers, con DynamoDB simulado y la tabla de rutas real de `infra/spec.py` |
-| `make postman` | Los convierte en la colección de Postman que pide la rúbrica |
-| `make test-live` | Los ejecuta por HTTP contra una API desplegada (necesita `API_BASE_URL`) |
-
-Es decir: la colección de Postman queda verificada **antes** de desplegar nada, y
-si un endpoint cambia sin actualizar el escenario, `make test` falla.
+Los `serverless.yml` traen `org: deborajeronimo`. **Cámbialo por tu cuenta** en los seis
+archivos, o elimina las líneas `org:` y `app:` si prefieres desplegar sin Dashboard:
 
 ```bash
-make postman
-API_BASE_URL=https://xxx.execute-api.us-east-1.amazonaws.com/dev make test-live
+sed -i '' 's/^org: deborajeronimo$/org: TU-CUENTA/' services/*/serverless.yml
 ```
+
+### 3. El rol de IAM
+
+Todas las funciones usan el rol `LabRole`, que ya existe en las cuentas de AWS Academy
+Learner Lab. Si tu cuenta no lo tiene, crea un rol con permisos para Lambda, API Gateway,
+DynamoDB y CloudFormation, y cambia el nombre en los seis `serverless.yml`.
+
+### 4. Prepara los tres secretos
+
+| Parámetro | Qué es | Cómo obtenerlo |
+|---|---|---|
+| `jwtSecret` | Firma los tokens de sesión | `openssl rand -hex 32` |
+| `internalKey` | Autoriza las llamadas entre servicios | `openssl rand -hex 32` |
+| `anthropicApiKey` | **Tu clave de la API de Anthropic** | [console.anthropic.com](https://console.anthropic.com) → API Keys |
+
+> ### 🔑 Dónde va tu clave de la API de Anthropic
+>
+> **Solo en la línea de comandos, al desplegar el servicio `ia`:**
+>
+> ```bash
+> serverless deploy --param="anthropicApiKey=sk-ant-..."
+> ```
+>
+> Serverless la guarda como variable de entorno de la función Lambda. **No la escribas en
+> ningún archivo del repositorio**: no hay ningún `.env` ni ninguna línea en los
+> `serverless.yml` donde ponerla, y es a propósito.
+>
+> Si prefieres no teclearla cada vez, expórtala en tu terminal antes de desplegar:
+>
+> ```bash
+> export ANTHROPIC_KEY="sk-ant-..."
+> serverless deploy --param="anthropicApiKey=$ANTHROPIC_KEY"
+> ```
+>
+> Sin esa clave, todo funciona menos el botón «Comprobar con IA», que responde
+> «La comprobación con IA no está configurada».
+
+El `jwtSecret` y el `internalKey` **deben ser idénticos en los seis servicios**. Si uno
+difiere, ese servicio rechazará todos los tokens o todas las llamadas internas.
+
+---
 
 ## Despliegue
 
-Se hace **a mano en la consola de AWS**, siguiendo
-[`docs/despliegue-manual.md`](docs/despliegue-manual.md): 7 tablas, 6 funciones Lambda
-y una HTTP API con su autorizador.
+Los servicios se llaman entre sí por URL, así que **el orden importa**: cada uno necesita
+las URLs de los que ya están desplegados. Guarda la URL que imprime cada despliegue.
 
 ```bash
-make package        # arma dist/<servicio>.zip para subir a la consola
-make deploy-guide   # regenera la guía si cambió infra/spec.py
+export JWT="$(openssl rand -hex 32)"
+export INTERNAL="$(openssl rand -hex 32)"
+export ANTHROPIC_KEY="sk-ant-..."   # tu clave
 ```
 
-`infra/spec.py` es la fuente de verdad: de ahí salen la guía, las tablas que usan las
-pruebas y las comprobaciones de arquitectura. Cambiar una clave ahí actualiza las tres.
+```bash
+./scripts/sync-common.sh
+```
+
+### 1 · progress (no depende de nadie)
+
+```bash
+cd services/progress && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL"
+```
+
+Copia la URL: `export PROGRESS_URL="https://..."`
+
+### 2 · flashcards (necesita progress)
+
+```bash
+cd services/flashcards && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL" --param="progressApiBase=$PROGRESS_URL"
+```
+
+Copia la URL: `export FLASHCARDS_URL="https://..."`
+
+### 3 · auth (no depende de nadie)
+
+```bash
+cd services/auth && serverless deploy --param="jwtSecret=$JWT"
+```
+
+### 4 · topics (necesita flashcards y progress)
+
+```bash
+cd services/topics && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL" --param="flashcardsApiBase=$FLASHCARDS_URL" --param="progressApiBase=$PROGRESS_URL"
+```
+
+### 5 · quiz (necesita flashcards y progress)
+
+```bash
+cd services/quiz && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL" --param="flashcardsApiBase=$FLASHCARDS_URL" --param="progressApiBase=$PROGRESS_URL"
+```
+
+### 6 · ia (necesita flashcards y tu clave)
+
+```bash
+cd services/ia && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL" --param="flashcardsApiBase=$FLASHCARDS_URL" --param="anthropicApiKey=$ANTHROPIC_KEY"
+```
+
+### 7 · Carga los datos iniciales
+
+```bash
+STAGE=dev python3 scripts/seed.py
+```
+
+### 8 · Anota las seis URLs
+
+Las necesitas para configurar el frontend. Si las pierdes:
+
+```bash
+cd services/auth && serverless info
+```
+
+---
+
+## Pruebas
+
+```bash
+make install
+```
+
+```bash
+make test
+```
+
+Las pruebas montan los seis servicios en memoria con DynamoDB simulado y recorren el flujo
+completo: registro, seguir un tema, repasar, comprobar con IA, examen y mazos propios. **No
+necesitan AWS, credenciales ni la clave de Anthropic** — la llamada al modelo se simula.
+
+---
 
 ## Catálogo de APIs
 
-Todas las rutas van bajo la URL de invocación de la etapa en API Gateway.
-Salvo las marcadas como públicas, exigen `Authorization: Bearer <token>`.
+Todas las rutas exigen `Authorization: Bearer <token>` salvo las marcadas como públicas.
 
-| Servicio | Método | Endpoint | Descripción |
-|---|---|---|---|
-| auth | POST | `/auth/register` | Crea una cuenta y devuelve el token · *público* |
-| auth | POST | `/auth/login` | Valida credenciales y devuelve el token · *público* |
-| auth | GET | `/auth/me` | Perfil del usuario autenticado |
-| topics | GET | `/topics` | Catálogo de temas, con búsqueda · *público* |
-| topics | POST | `/topics/{topicId}/follow` | Agrega el tema a "Mis temas" |
-| topics | DELETE | `/topics/{topicId}/follow` | Quita el tema de "Mis temas" |
-| topics | GET | `/me/topics` | Temas que sigue el usuario |
-| topics | POST | `/me/decks` | Crea un mazo propio con sus tarjetas |
-| topics | GET | `/me/decks` | Lista los mazos propios |
-| topics | GET | `/me/decks/{topicId}` | Detalle de un mazo con sus tarjetas |
-| topics | PATCH | `/me/decks/{topicId}` | Renombra un mazo propio |
-| topics | DELETE | `/me/decks/{topicId}` | Elimina el mazo, sus tarjetas y su progreso |
-| topics | POST | `/me/decks/{topicId}/cards` | Agrega tarjetas al mazo |
-| topics | DELETE | `/me/decks/{topicId}/cards/{cardId}` | Elimina una tarjeta |
-| flashcards | GET | `/flashcards/{topicId}` | Tarjetas que tocan hoy en ese tema |
-| flashcards | POST | `/flashcards/{cardId}/review` | Registra la calificación y reprograma |
-| progress | GET | `/progress` | Resumen global (racha, XP) + progreso de todos los temas |
-| progress | GET | `/progress/{topicId}` | Progreso en un tema |
-| quiz | POST | `/quiz/{topicId}/start` | Genera un quiz de 10 preguntas |
-| quiz | POST | `/quiz/{quizId}/submit` | Califica y devuelve el puntaje |
-| quiz | GET | `/quiz/{quizId}` | Consulta un intento |
+### auth
 
-Las decisiones de diseño detrás de este catálogo están en
-[`docs/01-correcciones-y-decisiones.md`](../docs/01-correcciones-y-decisiones.md).
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/auth/register` | Crea una cuenta y devuelve el token · *público* |
+| `POST` | `/auth/login` | Valida credenciales y devuelve el token · *público* |
+| `GET` | `/auth/me` | Perfil del usuario autenticado |
+
+### topics
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `GET` | `/topics` | Catálogo de temas, con búsqueda · *público* |
+| `POST` | `/topics/{topicId}/follow` | Agrega el tema a «Mis temas» |
+| `DELETE` | `/topics/{topicId}/follow` | Quita el tema de «Mis temas» |
+| `GET` | `/me/topics` | Temas que sigue el usuario |
+| `POST` | `/me/decks` | Crea un mazo propio con sus tarjetas |
+| `GET` | `/me/decks` | Lista los mazos propios |
+| `GET` | `/me/decks/{topicId}` | Detalle de un mazo con sus tarjetas |
+| `PATCH` | `/me/decks/{topicId}` | Renombra un mazo propio |
+| `DELETE` | `/me/decks/{topicId}` | Elimina el mazo y todo lo derivado |
+| `POST` | `/me/decks/{topicId}/cards` | Agrega tarjetas al mazo |
+| `DELETE` | `/me/decks/{topicId}/cards/{cardId}` | Elimina una tarjeta |
+
+### flashcards
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `GET` | `/flashcards/{topicId}` | Tarjetas que tocan hoy. Acepta `?cardIds=` para repasar errores |
+| `POST` | `/flashcards/{cardId}/review` | Registra la calificación. Requiere `topicId` en el cuerpo |
+
+### progress
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `GET` | `/progress` | Resumen global (racha, XP) y progreso de todos los temas |
+| `GET` | `/progress/{topicId}` | Progreso en un tema |
+
+### quiz
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/quiz/{topicId}/start` | Genera un examen de 10 preguntas |
+| `POST` | `/quiz/{quizId}/submit` | Califica; con 7 aciertos el tema queda dominado |
+| `GET` | `/quiz/{quizId}` | Consulta un intento |
+
+### ia
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/ia/check-answer` | Evalúa la respuesta escrita contra la correcta |
+| `GET` | `/ia/history/{topicId}` | Historial de comprobaciones del usuario |
+
+---
+
+## Problemas frecuentes
+
+| Síntoma | Causa más probable |
+|---|---|
+| `401` con un token recién emitido | El `jwtSecret` no es idéntico en los seis servicios |
+| `403 FORBIDDEN` en una llamada interna | El `internalKey` no coincide entre servicios |
+| El repaso funciona pero el progreso no cambia | Falta `--param="progressApiBase=..."` en flashcards |
+| El examen da `503 QUIZ_GENERATION_FAILED` | Falta `--param="flashcardsApiBase=..."` en quiz |
+| «La comprobación con IA no está configurada» | Falta `--param="anthropicApiKey=..."` en ia |
+| El navegador bloquea las llamadas | El servicio no se desplegó con `httpApi: cors: true` |
+| `ImportError: No module named common` | Ejecuta `./scripts/sync-common.sh` antes de desplegar |
+
+---
 
 ## Cómo contribuir
 
-1. Rama desde `main` con el prefijo del tipo de cambio y el microservicio afectado:
-   - `feature/auth-service-nombre-corto`
-   - `bugfix/quiz-service-nombre-corto`
-2. Commits con **Conventional Commits**: `tipo(microservicio): descripción breve en presente`.
-3. `make test` y `make lint` en verde antes de abrir el PR.
-4. Incluir evidencia de pruebas cuando el cambio afecte un endpoint.
-5. Revisión de al menos un integrante antes del merge a `main`.
+Ramas `feature/<servicio>-<nombre>` o `bugfix/<servicio>-<nombre>`, y commits con
+**Conventional Commits** usando el microservicio como scope:
 
-| Tipo | Cuándo usarlo | Ejemplo |
-|---|---|---|
-| `feat` | Nueva funcionalidad | `feat(flashcards-service): agregar endpoint de repetición espaciada` |
-| `fix` | Corrección de un bug | `fix(auth-service): corregir expiración del token` |
-| `docs` | Solo documentación | `docs(readme): documentar variables de entorno` |
-| `style` | Formato de código | `style(progress-service): aplicar linter` |
-| `refactor` | Ni bug ni función nueva | `refactor(quiz-service): extraer lógica de puntaje a un helper` |
-| `test` | Agregar o corregir pruebas | `test(topics-service): cubrir el catálogo ordenado` |
-| `chore` | Mantenimiento | `chore: actualizar dependencias` |
+| Tipo | Ejemplo |
+|---|---|
+| `feat` | `feat(ia): limitar la respuesta a 60 palabras` |
+| `fix` | `fix(auth): corregir la expiración del token` |
+| `docs` | `docs(readme): documentar el orden de despliegue` |
+| `test` | `test(quiz): cubrir el umbral de 7 de 10` |
+| `chore` | `chore: actualizar dependencias` |
 
 ## Equipo
 
