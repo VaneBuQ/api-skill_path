@@ -37,14 +37,19 @@ from common import (
 TABLE = boto3.resource("dynamodb").Table(os.environ["CHECKS_TABLE"])
 FLASHCARDS_API = os.environ.get("FLASHCARDS_API_BASE", "")
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_VERSION = "2023-06-01"
+# Groq, con formato de OpenAI: su capa gratuita basta para un trabajo
+# académico. Cualquier proveedor compatible con OpenAI sirve cambiando estas
+# dos variables de entorno, sin tocar el código.
+AI_URL = os.environ.get("AI_API_URL", "https://api.groq.com/openai/v1/chat/completions")
 # Comparar una respuesta con la correcta es una tarea de juez: corta, acotada
-# y de bajo criterio. Un modelo mayor costaría cinco veces más sin mejorar el
-# veredicto.
-MODEL = "claude-haiku-4-5"
-# 40 palabras de explicación más la estructura JSON caben de sobra en 300.
-MAX_TOKENS = 300
+# y de bajo criterio. GPT-OSS 120B está en el plan gratuito de Groq y tiene
+# precio público; Llama 3.3 70B pasó a ser solo para clientes Enterprise.
+MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b")
+# Es un modelo de razonamiento: los tokens que piensa cuentan dentro de este
+# límite. Con esfuerzo bajo piensa poco, pero 300 podrían cortar el JSON antes
+# de terminarlo. Las 40 palabras de la explicación se siguen imponiendo en el
+# prompt y se recortan en el servicio.
+MAX_TOKENS = 1000
 
 VERDICTS = ("correcta", "parcial", "incorrecta")
 RATING_BY_VERDICT = {"correcta": "easy", "parcial": "hard", "incorrecta": "forgot"}
@@ -72,32 +77,39 @@ código, con esta forma exacta:
 
 
 def _call_model(question, correct_answer, user_answer):
-    """Llama a la API de Anthropic. Devuelve el texto de la respuesta."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    """Llama a la API del modelo. Devuelve el texto de la respuesta."""
+    api_key = os.environ.get("AI_API_KEY", "")
     if not api_key:
         raise ApiError(503, "AI_NOT_CONFIGURED",
                        "La comprobación con IA no está configurada.")
 
     payload = {
         "model": MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "messages": [{
-            "role": "user",
-            "content": (
-                f"Pregunta: {question}\n\n"
-                f"Respuesta correcta: {correct_answer}\n\n"
-                f"Respuesta del estudiante: {user_answer}"
-            ),
-        }],
+        "max_completion_tokens": MAX_TOKENS,
+        # Obliga al modelo a devolver un objeto JSON válido.
+        "response_format": {"type": "json_object"},
+        # Evaluar una respuesta corta no necesita pensar mucho, y el
+        # razonamiento no se devuelve porque nadie lo lee.
+        "reasoning_effort": "low",
+        "include_reasoning": False,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    f"Pregunta: {question}\n\n"
+                    f"Respuesta correcta: {correct_answer}\n\n"
+                    f"Respuesta del estudiante: {user_answer}"
+                ),
+            },
+        ],
     }
 
     request = urllib.request.Request(
-        ANTHROPIC_URL, data=json.dumps(payload).encode("utf-8"), method="POST"
+        AI_URL, data=json.dumps(payload).encode("utf-8"), method="POST"
     )
     request.add_header("Content-Type", "application/json")
-    request.add_header("x-api-key", api_key)
-    request.add_header("anthropic-version", ANTHROPIC_VERSION)
+    request.add_header("Authorization", f"Bearer {api_key}")
 
     try:
         with urllib.request.urlopen(request, timeout=20) as raw:
@@ -112,12 +124,13 @@ def _call_model(question, correct_answer, user_answer):
         raise ApiError(503, "AI_UNAVAILABLE",
                        "No pudimos evaluar tu respuesta. Inténtalo otra vez.") from exc
 
-    # La respuesta es una lista de bloques; interesa el texto.
-    return "".join(
-        block.get("text", "")
-        for block in body.get("content", [])
-        if block.get("type") == "text"
-    ).strip()
+    # Formato de OpenAI: el texto está en la primera opción.
+    try:
+        return (body["choices"][0]["message"]["content"] or "").strip()
+    except (KeyError, IndexError, TypeError) as exc:
+        print(f"ERROR: respuesta inesperada de la API de IA: {str(body)[:300]}")
+        raise ApiError(503, "AI_UNAVAILABLE",
+                       "No pudimos evaluar tu respuesta. Inténtalo otra vez.") from exc
 
 
 def _parse_verdict(text):

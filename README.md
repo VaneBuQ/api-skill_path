@@ -44,7 +44,7 @@ ia         ──> flashcards    obtener la respuesta correcta de la tarjeta
 - **Amazon API Gateway** (HTTP API), uno por microservicio
 - **Amazon DynamoDB**, bajo demanda
 - **Serverless Framework** para automatizar el despliegue
-- **API de Anthropic (Claude Haiku)** para evaluar las respuestas escritas
+- **API de Groq (GPT-OSS 120B, capa gratuita)** para evaluar las respuestas escritas
 
 **Sin dependencias externas.** Los `requirements.txt` están vacíos a propósito: el JWT se
 firma con `hmac`, las contraseñas con `hashlib` y las llamadas HTTP con `urllib`, todo de
@@ -108,14 +108,14 @@ DynamoDB y CloudFormation, y cambia el nombre en los seis `serverless.yml`.
 |---|---|---|
 | `jwtSecret` | Firma los tokens de sesión | `openssl rand -hex 32` |
 | `internalKey` | Autoriza las llamadas entre servicios | `openssl rand -hex 32` |
-| `anthropicApiKey` | **Tu clave de la API de Anthropic** | [console.anthropic.com](https://console.anthropic.com) → API Keys |
+| `aiApiKey` | **Tu clave de la API de Groq** | [console.groq.com](https://console.groq.com) → API Keys (gratis, sin tarjeta) |
 
-> ### 🔑 Dónde va tu clave de la API de Anthropic
+> ### 🔑 Dónde va tu clave de la API de Groq
 >
 > **Solo en la línea de comandos, al desplegar el servicio `ia`:**
 >
 > ```bash
-> serverless deploy --param="anthropicApiKey=sk-ant-..."
+> serverless deploy --param="aiApiKey=gsk_..."
 > ```
 >
 > Serverless la guarda como variable de entorno de la función Lambda. **No la escribas en
@@ -125,8 +125,8 @@ DynamoDB y CloudFormation, y cambia el nombre en los seis `serverless.yml`.
 > Si prefieres no teclearla cada vez, expórtala en tu terminal antes de desplegar:
 >
 > ```bash
-> export ANTHROPIC_KEY="sk-ant-..."
-> serverless deploy --param="anthropicApiKey=$ANTHROPIC_KEY"
+> export AI_KEY="gsk_..."
+> serverless deploy --param="aiApiKey=$AI_KEY"
 > ```
 >
 > Sin esa clave, todo funciona menos el botón «Comprobar con IA», que responde
@@ -145,7 +145,7 @@ las URLs de los que ya están desplegados. Guarda la URL que imprime cada despli
 ```bash
 export JWT="$(openssl rand -hex 32)"
 export INTERNAL="$(openssl rand -hex 32)"
-export ANTHROPIC_KEY="sk-ant-..."   # tu clave
+export AI_KEY="gsk_..."   # tu clave
 ```
 
 ```bash
@@ -189,14 +189,30 @@ cd services/quiz && serverless deploy --param="jwtSecret=$JWT" --param="internal
 ### 6 · ia (necesita flashcards y tu clave)
 
 ```bash
-cd services/ia && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL" --param="flashcardsApiBase=$FLASHCARDS_URL" --param="anthropicApiKey=$ANTHROPIC_KEY"
+cd services/ia && serverless deploy --param="jwtSecret=$JWT" --param="internalKey=$INTERNAL" --param="flashcardsApiBase=$FLASHCARDS_URL" --param="aiApiKey=$AI_KEY"
 ```
 
 ### 7 · Carga los datos iniciales
 
+**Este paso no es opcional.** Sin él las tablas quedan vacías y la aplicación
+parece rota aunque los seis servicios respondan: «Explorar» no muestra ningún
+tema, no hay tarjetas que repasar, el progreso se queda en cero y el quiz nunca
+se habilita porque exige 10 conceptos estudiados. Todo con la misma causa.
+
 ```bash
 STAGE=dev python3 scripts/seed.py
 ```
+
+Carga 6 temas con 12 tarjetas cada uno (72 en total). Para comprobar que
+entraron, sin abrir la consola de AWS:
+
+```bash
+curl -s "$TOPICS_URL/topics" | python3 -m json.tool | head -20
+```
+
+Si devuelve `{"items": []}`, la semilla no se cargó: revisa que las credenciales
+de AWS Academy sigan vigentes (caducan al cerrar el laboratorio) y vuelve a
+ejecutarla. Es idempotente, se puede repetir sin duplicar nada.
 
 ### 8 · Anota las seis URLs
 
@@ -230,7 +246,7 @@ make install
 make test
 ```
 
-**No necesita AWS, credenciales ni la clave de Anthropic** — la llamada al modelo se
+**No necesita AWS, credenciales ni la clave de la IA** — la llamada al modelo se
 simula. Son 53 pasos repartidos en 5 escenarios: cuenta y catálogo, repaso con IA, examen
 de dominio, mazos propios y seguridad.
 
@@ -328,11 +344,18 @@ Todas las rutas exigen `Authorization: Bearer <token>` salvo las marcadas como p
 |---|---|
 | `401` con un token recién emitido | El `jwtSecret` no es idéntico en los seis servicios |
 | `403 FORBIDDEN` en una llamada interna | El `internalKey` no coincide entre servicios |
-| El repaso funciona pero el progreso no cambia | Falta `--param="progressApiBase=..."` en flashcards |
+| «Explorar» dice «El catálogo está vacío» | No se ejecutó el paso 7, `scripts/seed.py` |
+| No hay nada que repasar y el quiz nunca se habilita | Lo mismo: sin catálogo no hay tarjetas que estudiar |
+| El repaso funciona pero el progreso no cambia | Falta `--param="progressApiBase=..."` en flashcards. La aplicación ahora lo avisa en pantalla durante el repaso |
 | El examen da `503 QUIZ_GENERATION_FAILED` | Falta `--param="flashcardsApiBase=..."` en quiz |
-| «La comprobación con IA no está configurada» | Falta `--param="anthropicApiKey=..."` en ia |
+| «La comprobación con IA no está configurada» | Falta `--param="aiApiKey=..."` en ia |
 | El navegador bloquea las llamadas | El servicio no se desplegó con `httpApi: cors: true` |
 | `ImportError: No module named common` | Ejecuta `./scripts/sync-common.sh` antes de desplegar |
+
+> Para saber **cuál** de las seis URLs está mal, abre «Configuración» en la
+> aplicación web y pulsa **Probar conexión**: prueba las seis y dice si cada una
+> responde, no responde, o responde pero es la URL de otro microservicio —el
+> error más fácil de cometer pegando seis URLs casi idénticas.
 
 ---
 

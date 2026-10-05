@@ -184,7 +184,7 @@ class TestRespuestasInesperadas:
 class TestSinConfigurar:
     def test_si_falta_la_clave_lo_dice_claramente(self, app, monkeypatch):
         token = preparar(app)
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+        monkeypatch.setenv("AI_API_KEY", "")
         status, data = app.call("ia", "check_answer", token=token, body={
             "topicId": TOPIC, "cardId": "crd_0001", "answer": "Algo.",
         })

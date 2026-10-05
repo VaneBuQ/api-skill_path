@@ -26,7 +26,7 @@ Creado con Claude Opus 5 el 27 de septiembre de 2026.
 - La respuesta del usuario se limita a **60 palabras** y la explicación de la IA a **40**. El límite se pide en las instrucciones al modelo, se impone con `max_tokens` y se recorta en el servicio por si acaso. Acota el costo y, sobre todo, la calidad: una respuesta larga es imposible de evaluar y una explicación larga nadie la lee.
 - La respuesta correcta se pide siempre al microservicio de tarjetas, nunca se acepta del navegador: si no, cualquiera podría enviar la suya.
 - La IA **sugiere** la calificación, pero decide el usuario. Calificar sola sería frágil: una respuesta correcta expresada de forma rara se penalizaría y el usuario perdería la confianza en la aplicación.
-- El modelo es `claude-haiku-4-5`. Comparar una respuesta con la correcta es una tarea de juez: corta y acotada. Un modelo mayor costaría cinco veces más sin mejorar el veredicto.
+- El modelo es `openai/gpt-oss-120b` en Groq, cuya capa gratuita basta para un trabajo académico y que tiene precio público ($0.15 por millón de tokens de entrada y $0.60 de salida). Comparar una respuesta con la correcta es una tarea de juez: corta y acotada, así que se llama con `reasoning_effort: low` y sin devolver el razonamiento. Como los tokens que razona cuentan en el límite, `max_completion_tokens` es 1000 y no 300; las 40 palabras de la explicación se siguen imponiendo en el prompt y en el servicio. La API sigue el formato de OpenAI, así que se puede cambiar de proveedor con las variables de entorno `AI_API_URL` y `AI_MODEL`, sin tocar el código.
 - La llamada se hace por HTTPS con `urllib` de la librería estándar y no con el SDK oficial: el SDK arrastra dependencias con código compilado que en Lambda habría que empaquetar para Amazon Linux, y este patrón de despliegue no empaqueta dependencias.
 
 ## Despliegue automático
@@ -44,7 +44,7 @@ Cambia `org: deborajeronimo` en `serverless.yml` por tu cuenta de Serverless Das
 Desde la carpeta de este microservicio:
 
 ```bash
-serverless deploy --param="jwtSecret=..." --param="internalKey=..." --param="flashcardsApiBase=..." --param="anthropicApiKey=..."
+serverless deploy --param="jwtSecret=..." --param="internalKey=..." --param="flashcardsApiBase=..." --param="aiApiKey=..."
 ```
 
 ### Parámetros
@@ -54,21 +54,21 @@ serverless deploy --param="jwtSecret=..." --param="internalKey=..." --param="fla
 | `jwtSecret` | Secreto de los tokens. |
 | `internalKey` | Secreto de las llamadas entre servicios. |
 | `flashcardsApiBase` | URL del microservicio de tarjetas. |
-| `anthropicApiKey` | **Tu clave de la API de Anthropic.** Ver abajo. |
+| `aiApiKey` | **Tu clave de la API de Groq.** Ver abajo. |
 
-> ### 🔑 Dónde va tu clave de la API de Anthropic
+> ### 🔑 Dónde va tu clave de la API de Groq
 >
 > **Solo en la línea de comandos**, al desplegar este servicio:
 >
 > ```bash
-> serverless deploy --param="anthropicApiKey=sk-ant-..."
+> serverless deploy --param="aiApiKey=gsk_..."
 > ```
 >
 > Serverless la guarda como variable de entorno de la función Lambda.
 > **No la escribas en ningún archivo del repositorio**: no hay ningún `.env`
 > ni ninguna línea en el `serverless.yml` donde ponerla, y es a propósito.
 >
-> La obtienes en [console.anthropic.com](https://console.anthropic.com) → API Keys.
+> La obtienes gratis en [console.groq.com](https://console.groq.com) → API Keys.
 >
 > Sin ella, la aplicación funciona igual salvo el botón «Comprobar con IA»,
 > que responde «La comprobación con IA no está configurada».

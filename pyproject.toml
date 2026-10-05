@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["shared/python", "services"]
+pythonpath = [".", "shared/python", "services"]
 addopts = "-q --strict-markers"
 markers = [
     "e2e: prueba de extremo a extremo contra una API desplegada (requiere API_BASE_URL)",

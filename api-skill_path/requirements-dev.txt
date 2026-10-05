@@ -1,8 +1,0 @@
-# Solo para desarrollo y pruebas. Las Lambdas no llevan dependencias:
-# los requirements.txt de cada servicio están vacíos a propósito.
-boto3==1.35.76
-moto[dynamodb]==5.0.24
-pytest==8.3.4
-pytest-cov==6.0.0
-PyYAML==6.0.2
-ruff==0.8.4

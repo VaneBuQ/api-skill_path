@@ -5,6 +5,10 @@ service: flashcards
 provider:
   name: aws
   runtime: python3.13
+  # Graviton es un 20% más barato por GB-s y el código no tiene dependencias
+  # compiladas. 256 MB sobran: casi todo el tiempo se espera a DynamoDB o HTTP.
+  architecture: arm64
+  memorySize: 256
   region: us-east-1
   stage: dev
   iam:
