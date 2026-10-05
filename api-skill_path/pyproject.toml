@@ -1,0 +1,27 @@
+[project]
+name = "skillpath-api"
+version = "0.1.0"
+description = "Microservicios de SkillPath — Cloud Computing, UTEC Posgrado"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "shared/python", "services"]
+addopts = "-q --strict-markers"
+markers = [
+    "e2e: prueba de extremo a extremo contra una API desplegada (requiere API_BASE_URL)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Cada servicio lleva una copia de common.py; se revisa el original.
+"services/*/common.py" = ["ALL"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

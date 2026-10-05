@@ -1,0 +1,54 @@
+org: deborajeronimo
+app: skillpath
+service: ia
+
+provider:
+  name: aws
+  runtime: python3.13
+  # Graviton es un 20% más barato por GB-s y el código no tiene dependencias
+  # compiladas. 256 MB sobran: casi todo el tiempo se espera a DynamoDB o HTTP.
+  architecture: arm64
+  memorySize: 256
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  httpApi:
+    cors: true
+  environment:
+    CHECKS_TABLE: ${self:service}-checks-${sls:stage}
+    JWT_SECRET: ${param:jwtSecret, "cambia-esto-en-el-despliegue"}
+    INTERNAL_KEY: ${param:internalKey, "cambia-esto-en-el-despliegue"}
+    FLASHCARDS_API_BASE: ${param:flashcardsApiBase, ""}
+    # La clave la pasa quien despliega:
+    #   serverless deploy --param="aiApiKey=gsk_..."
+    # Nunca se escribe en un archivo del repositorio.
+    AI_API_KEY: ${param:aiApiKey, ""}
+
+functions:
+  checkAnswer:
+    handler: handler.check_answer
+    # Una llamada al modelo tarda más que una consulta a DynamoDB.
+    timeout: 25
+    events:
+      - httpApi: { path: "/ia/check-answer", method: post }
+  history:
+    handler: handler.history
+    events:
+      - httpApi: { path: "/ia/history/{topicId}", method: get }
+
+resources:
+  Resources:
+    ChecksTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.CHECKS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: userId, AttributeType: S }
+          # "<topicId>#<cardId>#<instante>": permite traer el historial de un
+          # tema con begins_with, y ordenado por fecha.
+          - { AttributeName: checkId, AttributeType: S }
+        KeySchema:
+          - { AttributeName: userId, KeyType: HASH }
+          - { AttributeName: checkId, KeyType: RANGE }
